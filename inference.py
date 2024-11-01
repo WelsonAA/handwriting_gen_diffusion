@@ -6,18 +6,24 @@ import nn
 import argparse
 import os
 import preprocessing
+"""
+from tensorflow.keras.mixed_precision import experimental as mixed_precision
 
+# Set the mixed precision policy to use 'float16' or 'bfloat16' where supported
+policy = mixed_precision.Policy('mixed_float16')  # or 'mixed_bfloat16' for TPU
+mixed_precision.set_policy(policy)
+"""
 def main():
     parser = argparse.ArgumentParser()  
-    parser.add_argument('--textstring', help='the text you want to generate', default='Generating text', type=str)  
+    parser.add_argument('--textstring', help='the text you want to generate', default='Diffusion beats GANs', type=str)
     parser.add_argument('--writersource', help="path of the image of the desired writer, (e.g. './assets/image.png'   \
-                                                will use random from ./assets if unspecified", default=None)
+                                                will use random from ./assets if unspecified", default="./assets/r06-412z-04.tif")
     parser.add_argument('--name', help="path for generated image (e.g. './assets/sample.png'), \
-                                             will not be saved if unspecified", default=None)
+                                             will not be saved if unspecified", default="./output/sample")
     parser.add_argument('--diffmode', help="what kind of y_t-1 prediction to use, use 'standard' for  \
-                                            Eq 9 in paper, will default to prediction in Eq 12", default='new', type=str)
-    parser.add_argument('--show', help="whether to show the sample (popup from matplotlib)", default=False, type=bool)
-    parser.add_argument('--weights', help='the path of the loaded weights', default='./weights/model_weights.h5', type=str)
+                                            Eq 9 in paper, will default to prediction in Eq 12", default='standard', type=str)
+    parser.add_argument('--show', help="whether to show the sample (popup from matplotlib)", default=True, type=bool)
+    parser.add_argument('--weights', help='the path of the loaded weights', default='./weights/model_step60000.h5', type=str)
     parser.add_argument('--seqlen', help='number of timesteps in generated sequence, default 16 * length of text', default=None, type=int)
     parser.add_argument('--num_attlayers', help='number of attentional layers at lowest resolution, \
                                                  only change this if loaded model was trained with that hyperparameter', default=2, type=int)
@@ -26,8 +32,25 @@ def main():
     
     args = parser.parse_args()
     timesteps = len(args.textstring) * 16 if args.seqlen is None else args.seqlen
-    timesteps = timesteps - (timesteps%8) + 8 
-    #must be divisible by 8 due to downsampling layers
+    timesteps = timesteps - (timesteps%8) + 8
+    # must be divisible by 8 due to downsampling layers
+    # Check if GPU is available and set memory growth if it is
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    if gpus:
+        try:
+            # Set memory growth to avoid allocating all memory at once
+            for gpu in gpus:
+                tf.config.experimental.set_memory_growth(gpu, True)
+            print(f"Running on GPU: {gpus[0].name}")
+        except RuntimeError as e:
+            print(e)
+    else:
+        print("No GPU found, running on CPU.")
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    if gpus:
+        print(f"Using GPU for mixed precision: {gpus[0].name}")
+    else:
+        print("No compatible GPU found. Running on CPU without mixed precision.")
 
     if args.writersource is None:
         assetdir = os.listdir('./assets')
@@ -54,10 +77,10 @@ def main():
     #we have to call the model on input first
     model.load_weights(args.weights)
 
-    writer_img = tf.expand_dims(preprocessing.read_img(sourcename, 96), 0)
+    writer_img = tf.expand_dims(preprocessing.read_img_for_inf(sourcename, 96), 0)
     style_vector = style_extractor(writer_img)
     utils.run_batch_inference(model, beta_set, args.textstring, style_vector, 
-                                tokenizer=tokenizer, time_steps=timesteps, diffusion_mode=args.diffmode, 
+                                tokenizer=tokenizer, time_steps=timesteps, diffusion_mode=args.diffmode,
                                 show_samples=args.show, path=args.name)
 
 if __name__ == '__main__':
