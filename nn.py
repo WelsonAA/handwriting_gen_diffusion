@@ -1,9 +1,12 @@
 import tensorflow as tf
 import numpy as np
+# from keras.integration_test.preprocessing_test_utils import BATCH_SIZE
 from tensorflow.keras import Model, Sequential
 from tensorflow.keras.applications import MobileNetV2
 from tensorflow.keras.layers import (Dense, Conv1D, Embedding, UpSampling1D, AveragePooling1D, 
 AveragePooling2D, GlobalAveragePooling2D, Activation, LayerNormalization, Dropout, Layer)
+
+
 
 def create_padding_mask(seq, repeats=1):
     seq = tf.cast(tf.math.equal(seq, 0), tf.float32)
@@ -11,62 +14,71 @@ def create_padding_mask(seq, repeats=1):
     mask = seq[:, tf.newaxis, tf.newaxis, :]
     return mask
 
-def get_angles(pos, i, C, pos_factor = 1):
-    angle_rates = 1 / np.power(10000, (2 * (i//2)) / np.float32(C))
+
+def get_angles(pos, i, C, pos_factor=1):
+    angle_rates = 1 / np.power(10000, (2 * (i // 2)) / np.float32(C))
     return pos * angle_rates * pos_factor
+
 
 def positional_encoding(position, C, pos_factor=1):
     angle_rads = get_angles(np.arange(position)[:, np.newaxis],
                             np.arange(C)[np.newaxis, :], C, pos_factor=pos_factor)
-    
+
     angle_rads[:, 0::2] = np.sin(angle_rads[:, 0::2])
-    angle_rads[:, 1::2] = np.cos(angle_rads[:, 1::2])    
-    pos_encoding = angle_rads[np.newaxis, ...]    
+    angle_rads[:, 1::2] = np.cos(angle_rads[:, 1::2])
+    pos_encoding = angle_rads[np.newaxis, ...]
     return tf.cast(pos_encoding, dtype=tf.float32)
-    
+
+
 def ff_network(C, dff=768, act_before=True):
     ff_layers = [
         Dense(dff, activation='swish'),
-        Dense(C)    
+        Dense(C)
     ]
     if act_before: ff_layers.insert(0, Activation('swish'))
-    return Sequential(ff_layers)   
-    
+    return Sequential(ff_layers)
+
+
 def loss_fn(eps, score_pred, pl, pl_pred, abar, bce):
-    score_loss = tf.reduce_mean(tf.reduce_sum(tf.square(eps - score_pred), axis=-1)) 
+    score_loss = tf.reduce_mean(tf.reduce_sum(tf.square(eps - score_pred), axis=-1))
     pl_loss = tf.reduce_mean(bce(pl, pl_pred) * tf.squeeze(abar, -1))
     return score_loss + pl_loss
-    
+
+
 def scaled_dp_attn(q, k, v, mask):
-    qk = tf.matmul(q, k, transpose_b=True) #batch_size, d_model, seq_len_q, seq_len_k
-    dk = tf.cast(tf.shape(k)[-1], tf.float32)  
+    qk = tf.matmul(q, k, transpose_b=True)  # batch_size, d_model, seq_len_q, seq_len_k
+    dk = tf.cast(tf.shape(k)[-1], tf.float32)
     scaled_qk = qk / tf.sqrt(dk)
-    if mask is not None: scaled_qk += (mask*-1e12)
-    
+    if mask is not None: scaled_qk += (mask * -1e12)
+
     attention_weights = tf.nn.softmax(scaled_qk, axis=-1)  # (..., seq_len_q, seq_len_k)
     output = tf.matmul(attention_weights, v)
     return output, attention_weights
 
+
 def reshape_up(x, factor=2):
     x_shape = tf.shape(x)
-    x = tf.reshape(x, [x_shape[0], x_shape[1]*factor, x_shape[2]//factor])
+    x = tf.reshape(x, [x_shape[0], x_shape[1] * factor, x_shape[2] // factor])
     return x
+
 
 def reshape_down(x, factor=2):
     x_shape = tf.shape(x)
-    x = tf.reshape(x, [x_shape[0], x_shape[1]//factor, x_shape[2]*factor])
+    x = tf.reshape(x, [x_shape[0], x_shape[1] // factor, x_shape[2] * factor])
     return x
-    
+
+
 class AffineTransformLayer(Layer):
     def __init__(self, filters):
         super().__init__()
         self.gamma_emb = Dense(filters, bias_initializer='ones')
         self.beta_emb = Dense(filters)
-    
+
     def call(self, x, sigma):
         gammas = self.gamma_emb(sigma)
         betas = self.beta_emb(sigma)
         return x * gammas + betas
+
 
 class MultiHeadAttention(Layer):
     def __init__(self, C, num_heads):
@@ -76,24 +88,25 @@ class MultiHeadAttention(Layer):
         self.wq = Dense(C)
         self.wk = Dense(C)
         self.wv = Dense(C)
-        self.dense = Dense(C)  
-        
+        self.dense = Dense(C)
+
     def split_heads(self, x, batch_size):
         x = tf.reshape(x, (batch_size, -1, self.num_heads, self.C // self.num_heads))
-        return tf.transpose(x, perm=[0,2,1,3])
+        return tf.transpose(x, perm=[0, 2, 1, 3])
 
     def call(self, q, k, v, mask=None):
         batch_size = tf.shape(q)[0]
-        q, k, v = self.wq(q), self.wk(k), self.wv(v) # (bs, sl, C)
+        q, k, v = self.wq(q), self.wk(k), self.wv(v)  # (bs, sl, C)
         q = self.split_heads(q, batch_size)
         k = self.split_heads(k, batch_size)
-        v = self.split_heads(v, batch_size) #(bs, nh, sl, C // nh) for q,k,v
+        v = self.split_heads(v, batch_size)  # (bs, nh, sl, C // nh) for q,k,v
 
         attention, attention_weights = scaled_dp_attn(q, k, v, mask)
-        attention = tf.transpose(attention, perm=[0, 2, 1, 3]) # (bs, sl, nh, C // nh)
-        concat_attention = tf.reshape(attention, (batch_size, -1, self.C)) # (bs, sl, c)
+        attention = tf.transpose(attention, perm=[0, 2, 1, 3])  # (bs, sl, nh, C // nh)
+        concat_attention = tf.reshape(attention, (batch_size, -1, self.C))  # (bs, sl, c)
         output = self.dense(concat_attention)
         return output, attention_weights
+
 
 class InvSqrtSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
     def __init__(self, d_model, warmup_steps=4000):
@@ -102,9 +115,10 @@ class InvSqrtSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
         self.warmup_steps = warmup_steps
     
     def __call__(self, step):
+        step = tf.cast(step, tf.float32)  # Cast step to float32 to avoid the type issue
         arg1 = tf.math.rsqrt(step)
         arg2 = step * (self.warmup_steps ** -1.5)
-        return tf.math.rsqrt(self.d_model) * tf.math.minimum(arg1, arg2)
+        return tf.math.rsqrt(self.d_model) * tf.minimum(arg1, arg2)
 
 class AffineTransformLayer(Layer):
     def __init__(self, filters):
@@ -158,10 +172,15 @@ class StyleExtractor(Model):
             l.trainable = False
     
     def call(self, im, im2=None, get_similarity=False, training=False):
+        # Ensure the image has the correct shape
         x = tf.cast(im, tf.float32)
-        x = (x / 127.5) - 1     
-        x = tf.repeat(x, 3, axis=-1)
+        x = tf.image.resize(x, (96, 96))  # Resize the image to (96, 96)
 
+        # Convert grayscale (single channel) to RGB (3 channels)
+        if x.shape[-1] == 1:
+            x = tf.image.grayscale_to_rgb(x)
+
+        x = (x / 127.5) - 1  # Rescale pixels to the range [-1, 1]
         x = self.mobilenet(x, training=training)
         x = self.local_pool(x)
         output = tf.squeeze(x, axis=1)

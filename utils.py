@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import string
 import pickle
 import os
+from tensorflow.image import resize
 
 #notation clarification:
 #we use the variable "alpha" for alpha_bar (cumprod 1-beta)
@@ -98,7 +99,17 @@ def pad_img(img, width, height):
     padding = np.full((height, pad_len, 1), 255, dtype=np.uint8)
     img = np.concatenate((img, padding), axis=1)
     return img
-	
+
+def pad_img_for_utils(img, width, height):
+    # Convert the single-channel image to 3-channel (grayscale to RGB)
+    img = tf.image.grayscale_to_rgb(img) if img.shape[-1] == 1 else img
+
+    # Resize the image to the required width and height (96x96 for MobileNet)
+    img = resize(img, (height, width))
+
+    return img
+
+
 def preprocess_data(path, max_text_len, max_seq_len, img_width, img_height):
     with open(path, 'rb') as f:
         ds = pickle.load(f)
@@ -123,10 +134,12 @@ def preprocess_data(path, max_text_len, max_seq_len, img_width, img_height):
 def create_dataset(strokes, texts, samples, style_extractor, batch_size, buffer_size):    
     #we DO NOT SHUFFLE here, because we will shuffle later
     samples = tf.data.Dataset.from_tensor_slices(samples).batch(batch_size)
+    style_vectors = np.zeros((0, 1280))
     for count, s in enumerate(samples):
         style_vec = style_extractor(s)
         style_vec = style_vec.numpy()
-        if count==0: style_vectors = np.zeros((0, style_vec.shape[1], 1280))
+        if count==0:
+            style_vectors = np.zeros((0, style_vec.shape[1], 1280))
         style_vectors = np.concatenate((style_vectors, style_vec), axis=0)
     style_vectors = style_vectors.astype('float32')
     

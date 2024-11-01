@@ -61,7 +61,7 @@ def parse_page_text(dir_path, id):
         if 'CSR' in l: has_started = True
         #the text under 'CSR' is correct, the one labeled under 'OCR' is not
         if has_started:
-            if line_num>0: # theres one space after 'CSR'
+            if line_num>0: # there is one space after 'CSR'
                 dict[id[:-4]+ '-%02d' % line_num]  = l[:-1]
                 # add the id of the line -0n as a key to dictionary, 
                 # with value of the line number (excluding the last \n)
@@ -110,6 +110,13 @@ def read_img(path, height):
     h, w, _ = img_arr.shape
     img_arr = tf.image.resize(img_arr, (height, height * w // h))
     return img_arr.numpy().astype('uint8')
+def read_img_for_inf(path, height):
+    img = tf.keras.preprocessing.image.load_img(path, color_mode='grayscale')
+    img_arr = tf.keras.preprocessing.image.img_to_array(img).astype('uint8')
+    img_arr = remove_whitespace(img_arr, thresh=127)
+    h, w, _ = img_arr.shape
+    img_arr = tf.image.resize(img_arr, (height, height))
+    return img_arr.numpy().astype('uint8')
 
 def create_dataset(formlist, strokes_path, images_path, tokenizer, text_dict, height):
     dataset = []
@@ -120,7 +127,6 @@ def create_dataset(formlist, strokes_path, images_path, tokenizer, text_dict, he
     for f in forms:
         path = strokes_path + '/' + f[1:4] + '/' + f[1:8]
         offline_path = images_path + '/' + f[1:4] + '/' + f[1:8]
-
         samples = [s for s in os.listdir(path) if f[1:-1] in s]
         offline_samples = [s for s in os.listdir(offline_path) if f[1:-1] in s]
         shuffled_offline_samples = offline_samples.copy()
@@ -154,13 +160,14 @@ def main():
     i_path = args.images_path
     H = args.height
 
-    train_info = './data/trainset.txt'
-    val1_info = './data/testset_f.txt'  #labeled as test, we validation set 1 as test instead
-    val2_info = './data/testset_t.txt'  
-    test_info = './data/testset_v.txt'  #labeled as validation, but we use as test
+    train_info = 'data/trainset.txt'
+    val1_info = 'data/testset_f.txt'  #labeled as test, we use validation set 1 as test instead
+    val2_info = 'data/testset_t.txt'
+    test_info = 'data/testset_v.txt'  #labeled as validation, but we use as test
 
     tok = Tokenizer()
     labels = create_dict(t_path)
+    print(labels)
     train_strokes = create_dataset(train_info, s_path, i_path, tok, labels, H)
     val1_strokes = create_dataset(val1_info, s_path, i_path, tok, labels, H)
     val2_strokes = create_dataset(val2_info, s_path, i_path, tok, labels, H)
