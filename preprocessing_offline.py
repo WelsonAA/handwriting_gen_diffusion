@@ -79,7 +79,8 @@ def create_offline_dataset(formlist, images_path, tokenizer, text_dict, height):
     for f in forms:
         offline_path = os.path.join(images_path, f[1:4], f[1:8])
         offline_samples = [s for s in os.listdir(offline_path) if f[1:-1] in s]
-        random.shuffle(offline_samples)
+        shuffled_offline_samples = offline_samples.copy()
+        random.shuffle(shuffled_offline_samples)
 
         for img_name in offline_samples:
             img_path = os.path.join(offline_path, img_name)
@@ -128,9 +129,9 @@ def main():
     random.shuffle(test_dataset)
 
     # Save datasets
-    with open('./data/train_offline.p', 'wb') as f:
+    with open('./data_offline/train_offline.p', 'wb') as f:
         pickle.dump(train_dataset, f)
-    with open('./data/test_offline.p', 'wb') as f:
+    with open('./data_offline/test_offline.p', 'wb') as f:
         pickle.dump(test_dataset, f)
 
 
