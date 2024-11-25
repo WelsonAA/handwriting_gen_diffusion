@@ -30,7 +30,8 @@ def remove_whitespace(img, thresh, remove_middle=False):
     rows = np.where(row_mins < thresh)
     cols = np.where(col_mins < thresh)
 
-    if remove_middle: return img[rows[0]][:, cols[0]]
+    if remove_middle:
+        return img[rows[0]][:, cols[0]]
     else: 
         rows, cols = rows[0], cols[0]
         return img[rows[0]:rows[-1], cols[0]:cols[-1]]
@@ -125,16 +126,16 @@ def create_dataset(formlist, strokes_path, images_path, tokenizer, text_dict, he
     forms = open(formlist).readlines()
 
     for f in forms:
-        path = strokes_path + '/' + f[1:4] + '/' + f[1:8]
+        online_path = strokes_path + '/' + f[1:4] + '/' + f[1:8]
         offline_path = images_path + '/' + f[1:4] + '/' + f[1:8]
-        samples = [s for s in os.listdir(path) if f[1:-1] in s]
+        samples = [s for s in os.listdir(online_path) if f[1:-1] in s]
         offline_samples = [s for s in os.listdir(offline_path) if f[1:-1] in s]
         shuffled_offline_samples = offline_samples.copy()
         random.shuffle(shuffled_offline_samples)
         
         for i in range(len(samples)):
             dataset.append((
-                parse_stroke_xml(path + '/' + samples[i]),
+                parse_stroke_xml(online_path + '/' + samples[i]),
                 tokenizer.encode(text_dict[samples[i][:-4]]),
                 read_img(offline_path + '/' + shuffled_offline_samples[i], height)
             ))        

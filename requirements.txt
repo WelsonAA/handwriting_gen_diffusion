@@ -1,4 +1,4 @@
-tensorflow[and-cuda]
+tensorflow[and-cuda]==2.5.3
 tensorflow-gpu==2.5.0
 matplotlib
 numpy
@@ -6,3 +6,4 @@ pillow
 h5py
 pytesseract
 scikit-learn
+easyocr
