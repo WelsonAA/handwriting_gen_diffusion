@@ -7,3 +7,6 @@ h5py
 pytesseract
 scikit-learn
 easyocr
+opencv-python
+scikit-image
+torch-fidelity

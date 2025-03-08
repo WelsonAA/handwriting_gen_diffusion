@@ -102,6 +102,7 @@ def parse_stroke_xml(path):
     #the pen pickups are shifted by one, so a stroke that is not drawn has a 1
     strokes[:, :2] /= np.std(strokes[:, :2])
     for i in range(3): strokes = combine_strokes(strokes, int(len(strokes)*0.2))
+    print(strokes)
     return strokes
 
 def read_img(path, height):
@@ -173,7 +174,7 @@ def main():
     val1_strokes = create_dataset(val1_info, s_path, i_path, tok, labels, H)
     val2_strokes = create_dataset(val2_info, s_path, i_path, tok, labels, H)
     test_strokes = create_dataset(test_info, s_path, i_path, tok, labels, H)
-    
+
     train_strokes += val1_strokes
     train_strokes += val2_strokes
     random.shuffle(train_strokes)
