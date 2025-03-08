@@ -15,7 +15,7 @@ mixed_precision.set_policy(policy)
 """
 def main():
     parser = argparse.ArgumentParser()  
-    parser.add_argument('--textstring', help='the text you want to generate', default='I love Diffusion', type=str)
+    parser.add_argument('--textstring', help='the text you want to generate', default='Graduation Project', type=str)
     parser.add_argument('--writersource', help="path of the image of the desired writer, (e.g. './assets/image.png'   \
                                                 will use random from ./assets if unspecified", default="./assets/r06-412z-04.tif")
     parser.add_argument('--name', help="path for generated image (e.g. './assets/sample.png'), \
