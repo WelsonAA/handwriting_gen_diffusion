@@ -15,7 +15,11 @@ mixed_precision.set_policy(policy)
 """
 def main():
     parser = argparse.ArgumentParser()  
+<<<<<<< HEAD
     parser.add_argument('--textstring', help='the text you want to generate', default='مشروع', type=str)
+=======
+    parser.add_argument('--textstring', help='the text you want to generate', default='Graduation Project', type=str)
+>>>>>>> 4768f9b6bbc1d4d3fa78b39651e2e5c80ad1fcfa
     parser.add_argument('--writersource', help="path of the image of the desired writer, (e.g. './assets/image.png'   \
                                                 will use random from ./assets if unspecified", default="./assets/r06-412z-04.tif")
     parser.add_argument('--name', help="path for generated image (e.g. './assets/sample.png'), \
@@ -23,7 +27,11 @@ def main():
     parser.add_argument('--diffmode', help="what kind of y_t-1 prediction to use, use 'standard' for  \
                                             Eq 9 in paper, will default to prediction in Eq 12", default='standard', type=str)
     parser.add_argument('--show', help="whether to show the sample (popup from matplotlib)", default=True, type=bool)
+<<<<<<< HEAD
     parser.add_argument('--weights', help='the path of the loaded weights', default='./weights/model_step120000.h5', type=str)
+=======
+    parser.add_argument('--weights', help='the path of the loaded weights', default='./weights/model_weights.h5', type=str)
+>>>>>>> 4768f9b6bbc1d4d3fa78b39651e2e5c80ad1fcfa
     parser.add_argument('--seqlen', help='number of timesteps in generated sequence, default 16 * length of text', default=None, type=int)
     parser.add_argument('--num_attlayers', help='number of attentional layers at lowest resolution, \
                                                  only change this if loaded model was trained with that hyperparameter', default=2, type=int)
