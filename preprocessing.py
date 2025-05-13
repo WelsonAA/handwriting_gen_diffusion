@@ -122,8 +122,6 @@ def read_img_for_inf(path, height):
 
 def create_dataset(formlist, strokes_path, images_path, tokenizer, text_dict, height):
     dataset = []
-    offline_dataset = []
-    same_writer_examples = []
     forms = open(formlist).readlines()
 
     for f in forms:
